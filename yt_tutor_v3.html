@@ -236,7 +236,7 @@ body {
 
       <div class="url-row">
         <input type="url" id="url-in" placeholder="https://youtube.com/watch?v=…" autocomplete="off">
-        <button class="go-btn" id="go-btn" onclick="fetchAndStart()">Go →</button>
+        <button class="go-btn" id="go-btn" onclick="previewVideo()">Open ↗</button>
       </div>
 
       <div class="thumb-row" id="thumb-row">
@@ -247,14 +247,11 @@ body {
         </div>
       </div>
 
-      <div class="fetch-status" id="fetch-status">
-        <div class="fetch-spinner" id="fetch-spinner" style="display:none"></div>
-        <span id="fetch-msg"></span>
-      </div>
-
-      <div class="transcript-preview" id="transcript-preview">
-        <div class="transcript-lbl">Transcript preview</div>
-        <div id="transcript-text"></div>
+      <div class="field-group" style="margin-top:4px">
+        <div class="field-lbl">영상을 보고 난 후 — 내용을 여기에 입력하세요</div>
+        <textarea class="topic-textarea" id="topic-in"
+          placeholder="영상 내용을 자유롭게 설명해주세요 (한국어 또는 영어). 예: This video explained how TOD planning works in Seoul — transit hubs reshaping nearby neighborhoods."></textarea>
+        <div class="field-hint" style="font-size:11px;color:var(--ink3);line-height:1.5">영어가 틀려도 괜찮아요. 튜터가 내용을 바탕으로 수업을 진행해요.</div>
       </div>
 
       <button class="btn-start" id="start-btn" onclick="startLesson()">
@@ -366,94 +363,18 @@ function extractId(url) {
 }
 
 // ── Fetch transcript via Claude web search ────────────
-async function fetchAndStart() {
+function previewVideo() {
   const url = document.getElementById('url-in').value.trim();
   const id = extractId(url);
   if (!id) { alert('Please enter a valid YouTube URL'); return; }
   videoId = id;
-
-  // Show thumbnail
+  videoTitle = url;
   document.getElementById('yt-thumb').src = `https://img.youtube.com/vi/${id}/mqdefault.jpg`;
-  document.getElementById('yt-title').textContent = 'Searching transcript…';
-  document.getElementById('yt-ch').textContent = '';
+  document.getElementById('yt-title').textContent = 'youtube.com/watch?v=' + id;
+  document.getElementById('yt-ch').textContent = 'Watch the video, then describe it below ↓';
   document.getElementById('thumb-row').classList.add('show');
-  document.getElementById('go-btn').disabled = true;
-
-  setFetchStatus('loading', 'Searching for transcript via web…');
-  setLoadingStep('Looking up video on the web…');
-
-  try {
-    const result = await searchTranscript(url, id);
-    transcript = result.transcript || '';
-    videoTitle = result.title || url;
-
-    document.getElementById('yt-title').textContent = videoTitle;
-    document.getElementById('yt-ch').textContent = result.channel || '';
-
-    if (transcript && transcript.length > 100) {
-      setFetchStatus('ok', `Transcript found (${transcript.split(' ').length} words)`);
-      document.getElementById('transcript-text').textContent = transcript.substring(0, 300) + '…';
-      document.getElementById('transcript-preview').classList.add('show');
-      document.getElementById('start-btn').classList.add('show');
-      document.getElementById('hdr-sub').textContent = videoTitle;
-    } else {
-      setFetchStatus('fail', 'Transcript not found. Try a more popular video.');
-    }
-  } catch(e) {
-    setFetchStatus('fail', 'Search failed. Check your API key.');
-  }
-  document.getElementById('go-btn').disabled = false;
-}
-
-async function searchTranscript(url, id) {
-  // Two-pass: first get title/channel, then get transcript
-  const prompt = `Search the web for information about this YouTube video: ${url}
-
-I need you to find:
-1. The exact video title
-2. The channel name
-3. As much of the spoken transcript or detailed spoken content as possible. Search for "[video title] transcript", "[video title] full text", "[video title] subtitles", and look at video description pages, subtitle sites like rev.com, otter.ai results, or any page that quotes the spoken content.
-
-Return ONLY this JSON (no other text, no markdown):
-{
-  "title": "exact video title",
-  "channel": "channel name",
-  "transcript": "all spoken content you could find, verbatim where possible, at least 200 words"
-}`;
-
-  const res = await fetch('https://api.anthropic.com/v1/messages', {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      'x-api-key': apiKey,
-      'anthropic-version': '2023-06-01',
-      'anthropic-dangerous-direct-browser-access': 'true'
-    },
-    body: JSON.stringify({
-      model: 'claude-sonnet-4-20250514',
-      max_tokens: 2500,
-      tools: [{ type: 'web_search_20250305', name: 'web_search' }],
-      messages: [{ role: 'user', content: prompt }]
-    })
-  });
-
-  if (!res.ok) throw new Error('API ' + res.status);
-  const data = await res.json();
-
-  // Find the final text block
-  const textBlock = data.content?.filter(b => b.type === 'text').pop();
-  const raw = textBlock?.text || '';
-  const jsonMatch = raw.match(/\{[\s\S]*\}/);
-  if (!jsonMatch) throw new Error('No JSON in response');
-  return JSON.parse(jsonMatch[0]);
-}
-
-function setFetchStatus(type, msg) {
-  const el = document.getElementById('fetch-status');
-  const spinner = document.getElementById('fetch-spinner');
-  el.className = 'fetch-status show ' + type;
-  document.getElementById('fetch-msg').textContent = msg;
-  spinner.style.display = type === 'loading' ? 'block' : 'none';
+  document.getElementById('start-btn').classList.add('show');
+  window.open('https://www.youtube.com/watch?v=' + id, '_blank');
 }
 
 // ── Start Lesson ──────────────────────────────────────
@@ -465,7 +386,10 @@ async function startLesson() {
   setStage(1);
   showLoading('Preparing Dictation stage…', 'Analysing transcript for key sentences');
 
-  const initMsg = `VIDEO TITLE: ${videoTitle}\n\nTRANSCRIPT:\n${transcript}\n\nBegin Stage 1 (Dictation) now. Pick 4 strong sentences from the transcript above and start with the first one.`;
+  const desc = document.getElementById('topic-in').value.trim();
+  if (!desc) { alert('Please describe the video content first!'); return; }
+  transcript = desc;
+  const initMsg = `VIDEO TITLE: ${videoTitle}\n\nVIDEO DESCRIPTION (from student):\n${desc}\n\nBegin Stage 1 (Dictation) now. Based on the description above, create 4 natural English sentences about the video topic and start dictation with the first one.`;
 
   isThinking = true;
   try {
