@@ -1,0 +1,708 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<title>YT English Tutor</title>
+<link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=Fraunces:ital,wght@0,300;0,600;1,300&display=swap" rel="stylesheet">
+<style>
+:root {
+  --ink: #1a1a1a; --ink2: #3d3d3d; --ink3: #7a7a7a;
+  --paper: #f5f0e8; --paper2: #ede8dc; --paper3: #e3ddd0;
+  --rule: rgba(26,26,26,0.1); --rule2: rgba(26,26,26,0.18);
+  --red: #c0392b; --red-bg: rgba(192,57,43,0.08);
+  --green: #27695a; --green-bg: rgba(39,105,90,0.08);
+  --amber: #8a5c00; --amber-bg: rgba(138,92,0,0.09);
+  --blue: #1a4a8a; --blue-bg: rgba(26,74,138,0.08);
+  --r: 12px; --r-sm: 8px;
+}
+* { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
+body {
+  font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Text', sans-serif;
+  background: var(--paper); color: var(--ink); min-height: 100dvh;
+  background-image: repeating-linear-gradient(0deg, transparent, transparent 27px, rgba(26,26,26,0.03) 27px, rgba(26,26,26,0.03) 28px);
+}
+
+.screen { display: none; flex-direction: column; min-height: 100dvh; }
+.screen.active { display: flex; }
+
+/* ── SETUP ── */
+#setup { align-items: center; justify-content: center; padding: 48px 28px; gap: 22px; }
+.brand { display: flex; align-items: center; gap: 12px; }
+.brand-icon { width: 52px; height: 52px; border-radius: 14px; background: var(--ink); display: flex; align-items: center; justify-content: center; color: var(--paper); font-size: 22px; }
+.brand-name { font-family: 'Fraunces', serif; font-size: 26px; font-weight: 600; letter-spacing: -0.02em; }
+.brand-tagline { font-size: 11px; color: var(--ink3); letter-spacing: 0.08em; text-transform: uppercase; margin-top: 1px; }
+.divider { width: 100%; height: 1px; background: var(--rule2); }
+.field-group { width: 100%; display: flex; flex-direction: column; gap: 6px; }
+.field-lbl { font-size: 10px; letter-spacing: 0.1em; text-transform: uppercase; color: var(--ink3); font-weight: 500; }
+.field-input { width: 100%; padding: 13px 15px; background: var(--paper2); border: 1px solid var(--rule2); border-radius: var(--r-sm); color: var(--ink); font-size: 14px; font-family: 'DM Mono', monospace; outline: none; transition: border-color 0.15s; }
+.field-input:focus { border-color: var(--ink2); }
+.field-input::placeholder { color: var(--ink3); }
+.btn-ink { width: 100%; padding: 15px; background: var(--ink); border: none; border-radius: var(--r-sm); color: var(--paper); font-size: 15px; font-weight: 600; cursor: pointer; transition: opacity 0.15s; }
+.btn-ink:active { opacity: 0.8; }
+.note { font-size: 12px; color: var(--ink3); text-align: center; line-height: 1.65; }
+.note a { color: var(--blue); }
+
+/* ── MAIN ── */
+#main { height: 100dvh; overflow: hidden; display: flex; flex-direction: column; }
+#hdr { padding: 52px 18px 13px; border-bottom: 1px solid var(--rule2); background: var(--paper); flex-shrink: 0; display: flex; align-items: flex-end; justify-content: space-between; }
+.hdr-title { font-family: 'Fraunces', serif; font-size: 20px; font-weight: 600; letter-spacing: -0.02em; }
+.hdr-sub { font-size: 11px; color: var(--ink3); margin-top: 2px; max-width: 260px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.gear { width: 30px; height: 30px; border-radius: 50%; border: 1px solid var(--rule2); background: var(--paper2); display: flex; align-items: center; justify-content: center; font-size: 13px; cursor: pointer; }
+
+/* Stage bar */
+#stage-bar { display: none; padding: 10px 18px; border-bottom: 1px solid var(--rule); background: var(--paper); flex-shrink: 0; }
+#stage-bar.show { display: block; }
+.track { display: flex; gap: 6px; }
+.sdot { flex: 1; height: 3px; border-radius: 2px; background: var(--rule2); transition: background 0.3s; }
+.sdot.done { background: var(--green); }
+.sdot.active { background: var(--ink); }
+.slbls { display: flex; margin-top: 6px; }
+.slbl { flex: 1; font-size: 10px; color: var(--ink3); letter-spacing: 0.04em; text-transform: uppercase; transition: color 0.3s; }
+.slbl.active { color: var(--ink); font-weight: 600; }
+.slbl.done { color: var(--green); }
+
+/* Scroll area */
+#scroll { flex: 1; overflow-y: auto; padding: 18px 18px 190px; display: flex; flex-direction: column; gap: 16px; scrollbar-width: none; }
+#scroll::-webkit-scrollbar { display: none; }
+
+/* URL input card */
+.url-card { background: var(--paper2); border: 1px solid var(--rule2); border-radius: var(--r); padding: 16px; display: flex; flex-direction: column; gap: 12px; }
+.card-title { font-family: 'Fraunces', serif; font-size: 16px; font-weight: 600; }
+.card-sub { font-size: 12px; color: var(--ink3); line-height: 1.55; }
+.url-row { display: flex; gap: 8px; }
+.url-row input { flex: 1; padding: 11px 13px; background: var(--paper); border: 1px solid var(--rule2); border-radius: var(--r-sm); font-size: 13px; color: var(--ink); outline: none; font-family: inherit; }
+.url-row input:focus { border-color: var(--ink2); }
+.url-row input::placeholder { color: var(--ink3); }
+.go-btn { padding: 11px 18px; background: var(--ink); border: none; border-radius: var(--r-sm); color: var(--paper); font-size: 14px; font-weight: 600; cursor: pointer; flex-shrink: 0; transition: opacity 0.15s; }
+.go-btn:active { opacity: 0.8; }
+.go-btn:disabled { opacity: 0.35; }
+
+/* Thumb preview */
+.thumb-row { display: none; align-items: center; gap: 10px; }
+.thumb-row.show { display: flex; }
+.yt-thumb { width: 72px; height: 46px; border-radius: 6px; object-fit: cover; background: var(--paper3); flex-shrink: 0; }
+.thumb-title { font-size: 12px; font-weight: 600; line-height: 1.4; }
+.thumb-ch { font-size: 11px; color: var(--ink3); margin-top: 2px; }
+
+/* Status pill */
+.fetch-status { display: none; align-items: center; gap: 8px; padding: 9px 12px; border-radius: var(--r-sm); font-size: 12px; }
+.fetch-status.show { display: flex; }
+.fetch-status.loading { background: var(--blue-bg); color: var(--blue); border: 1px solid rgba(26,74,138,0.2); }
+.fetch-status.ok { background: var(--green-bg); color: var(--green); border: 1px solid rgba(39,105,90,0.2); }
+.fetch-status.fail { background: var(--red-bg); color: var(--red); border: 1px solid rgba(192,57,43,0.2); }
+.fetch-spinner { width: 12px; height: 12px; border-radius: 50%; border: 1.5px solid currentColor; border-top-color: transparent; animation: spin 0.7s linear infinite; flex-shrink: 0; }
+@keyframes spin { to { transform: rotate(360deg); } }
+
+/* Transcript preview */
+.transcript-preview { display: none; background: var(--paper); border: 1px solid var(--rule2); border-radius: var(--r-sm); padding: 12px 13px; font-size: 12px; color: var(--ink2); line-height: 1.65; max-height: 110px; overflow: hidden; position: relative; }
+.transcript-preview.show { display: block; }
+.transcript-preview::after { content: ''; position: absolute; bottom: 0; left: 0; right: 0; height: 32px; background: linear-gradient(transparent, var(--paper)); }
+.transcript-lbl { font-size: 10px; letter-spacing: 0.07em; text-transform: uppercase; color: var(--ink3); margin-bottom: 6px; font-weight: 500; }
+
+.btn-start { width: 100%; padding: 14px; background: var(--ink); border: none; border-radius: var(--r-sm); color: var(--paper); font-size: 15px; font-weight: 600; cursor: pointer; transition: opacity 0.15s; display: none; }
+.btn-start.show { display: block; }
+.btn-start:active { opacity: 0.8; }
+
+/* ── Messages ── */
+.mg { display: flex; flex-direction: column; gap: 5px; }
+.mg.user { align-items: flex-end; }
+.mg.ai { align-items: flex-start; }
+.mwho { font-size: 10px; color: var(--ink3); letter-spacing: 0.05em; padding: 0 4px; }
+.bubble { max-width: 86%; padding: 12px 15px; font-size: 14px; line-height: 1.6; border-radius: 16px; }
+.user .bubble { background: var(--ink); color: var(--paper); border-bottom-right-radius: 4px; }
+.ai .bubble { background: var(--paper2); color: var(--ink); border: 1px solid var(--rule2); border-bottom-left-radius: 4px; }
+
+.stage-chip { display: inline-flex; align-items: center; gap: 5px; padding: 3px 10px; border-radius: 20px; font-size: 10px; font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase; margin-bottom: 4px; }
+.chip-d { background: var(--amber-bg); color: var(--amber); border: 1px solid rgba(138,92,0,0.2); }
+.chip-q { background: var(--blue-bg); color: var(--blue); border: 1px solid rgba(26,74,138,0.2); }
+.chip-s { background: var(--green-bg); color: var(--green); border: 1px solid rgba(39,105,90,0.2); }
+
+.ftag { max-width: 86%; padding: 10px 13px; border-radius: var(--r-sm); font-size: 13px; line-height: 1.55; }
+.ftag strong { display: block; font-size: 9px; letter-spacing: 0.09em; text-transform: uppercase; margin-bottom: 4px; opacity: 0.6; }
+.ftag.correction { background: var(--amber-bg); color: var(--amber); border: 1px solid rgba(138,92,0,0.18); }
+.ftag.vocab-tip  { background: var(--green-bg); color: var(--green); border: 1px solid rgba(39,105,90,0.18); }
+
+.dc { max-width: 88%; background: var(--paper2); border: 1px solid var(--rule2); border-left: 3px solid var(--amber); border-radius: var(--r-sm); padding: 12px 14px; }
+.dc-lbl { font-size: 10px; color: var(--amber); letter-spacing: 0.08em; text-transform: uppercase; margin-bottom: 6px; font-weight: 600; }
+.dc-sent { font-size: 15px; font-family: 'Fraunces', serif; font-style: italic; color: var(--ink); line-height: 1.5; }
+
+.choices { display: flex; flex-direction: column; gap: 7px; max-width: 88%; }
+.choice { padding: 11px 14px; text-align: left; background: var(--paper2); border: 1px solid var(--rule2); border-radius: var(--r-sm); color: var(--ink); font-size: 13px; cursor: pointer; font-family: inherit; transition: all 0.15s; line-height: 1.4; }
+.choice:active { background: var(--paper3); }
+.choice.correct { background: var(--green-bg); color: var(--green); border-color: rgba(39,105,90,0.3); }
+.choice.wrong   { background: var(--red-bg);   color: var(--red);   border-color: rgba(192,57,43,0.25); }
+
+.typing-bub { display: flex; gap: 5px; align-items: center; padding: 12px 16px; background: var(--paper2); border: 1px solid var(--rule2); border-radius: 16px; border-bottom-left-radius: 4px; }
+.dot { width: 5px; height: 5px; border-radius: 50%; background: var(--ink3); animation: blink 1.2s infinite; }
+.dot:nth-child(2){animation-delay:.2s}.dot:nth-child(3){animation-delay:.4s}
+@keyframes blink{0%,80%,100%{opacity:.2;transform:scale(.75)}40%{opacity:1;transform:scale(1)}}
+
+.summary-card { max-width: 92%; background: var(--paper2); border: 1px solid var(--rule2); border-radius: var(--r); padding: 14px 16px; }
+.summary-title { font-family: 'Fraunces', serif; font-size: 14px; font-weight: 600; margin-bottom: 10px; }
+.summary-row { padding: 7px 0; border-bottom: 1px solid var(--rule); font-size: 13px; line-height: 1.5; color: var(--ink2); }
+.summary-row:last-child { border-bottom: none; }
+
+/* Vocab strip */
+#vocab-bar { position: fixed; bottom: 116px; left: 0; right: 0; display: none; padding: 0 16px; pointer-events: none; z-index: 10; }
+#vocab-bar.show { display: block; }
+.vocab-strip { display: flex; gap: 7px; overflow-x: auto; scrollbar-width: none; pointer-events: all; padding: 6px 0; }
+.vocab-strip::-webkit-scrollbar { display: none; }
+.vocab-pill { flex-shrink: 0; padding: 5px 12px; background: var(--paper); border: 1px solid var(--rule2); border-radius: 20px; font-size: 11px; font-weight: 600; color: var(--green); white-space: nowrap; box-shadow: 0 2px 8px rgba(0,0,0,0.07); }
+
+/* Voice bar */
+#voice-bar { position: fixed; bottom: 0; left: 0; right: 0; background: var(--paper); border-top: 1px solid var(--rule2); padding: 12px 18px; padding-bottom: calc(12px + env(safe-area-inset-bottom)); display: none; flex-direction: column; align-items: center; gap: 10px; z-index: 20; }
+#voice-bar.show { display: flex; }
+#transcript-line { font-size: 13px; color: var(--blue); font-style: italic; min-height: 18px; text-align: center; }
+.vrow { display: flex; align-items: center; gap: 16px; width: 100%; }
+#mic-btn { width: 58px; height: 58px; border-radius: 50%; background: var(--ink); border: none; display: flex; align-items: center; justify-content: center; cursor: pointer; transition: all 0.2s; flex-shrink: 0; }
+#mic-btn.listening { background: var(--red); box-shadow: 0 0 0 8px rgba(192,57,43,0.1), 0 0 0 16px rgba(192,57,43,0.04); }
+#mic-btn.speaking { background: var(--green); }
+#mic-btn svg { width: 24px; height: 24px; }
+.vright { flex: 1; display: flex; flex-direction: column; gap: 7px; }
+#status-txt { font-size: 12px; color: var(--ink3); transition: color 0.2s; }
+#status-txt.listening { color: var(--red); }
+#status-txt.thinking  { color: var(--blue); }
+#status-txt.speaking  { color: var(--green); }
+.qbtns { display: flex; gap: 6px; flex-wrap: wrap; }
+.qbtn { padding: 6px 12px; font-size: 11px; border: 1px solid var(--rule2); background: var(--paper2); border-radius: 20px; color: var(--ink2); cursor: pointer; font-family: inherit; transition: all 0.15s; }
+.qbtn:active { background: var(--paper3); }
+
+/* Loading overlay */
+#loading { position: fixed; inset: 0; z-index: 200; background: rgba(245,240,232,0.93); display: none; flex-direction: column; align-items: center; justify-content: center; gap: 14px; }
+#loading.show { display: flex; }
+.lspinner { width: 36px; height: 36px; border-radius: 50%; border: 2.5px solid var(--rule2); border-top-color: var(--ink); animation: spin 0.75s linear infinite; }
+.lmsg { font-size: 14px; color: var(--ink3); text-align: center; line-height: 1.7; font-family: 'Fraunces', serif; font-style: italic; max-width: 280px; }
+.lstep { font-size: 11px; color: var(--ink3); text-align: center; margin-top: 4px; }
+</style>
+</head>
+<body>
+
+<div id="loading">
+  <div class="lspinner"></div>
+  <div class="lmsg" id="lmsg">Searching for transcript…</div>
+  <div class="lstep" id="lstep"></div>
+</div>
+
+<!-- SETUP -->
+<div class="screen active" id="setup">
+  <div class="brand">
+    <div class="brand-icon">▶</div>
+    <div>
+      <div class="brand-name">Study Tutor</div>
+      <div class="brand-tagline">YouTube × English</div>
+    </div>
+  </div>
+  <div class="divider"></div>
+  <div class="field-group">
+    <div class="field-lbl">Anthropic API Key</div>
+    <input class="field-input" type="password" id="key-in" placeholder="sk-ant-api03-…" autocomplete="off" spellcheck="false">
+  </div>
+  <button class="btn-ink" onclick="enterApp()">Enter →</button>
+  <p class="note">Stored on device only · <a href="https://console.anthropic.com" target="_blank">Get a key →</a></p>
+</div>
+
+<!-- MAIN -->
+<div class="screen" id="main">
+  <div id="hdr">
+    <div>
+      <div class="hdr-title">Study Session</div>
+      <div class="hdr-sub" id="hdr-sub">Paste a YouTube URL to begin</div>
+    </div>
+    <div class="gear" onclick="goSetup()">⚙</div>
+  </div>
+
+  <div id="stage-bar">
+    <div class="track">
+      <div class="sdot" id="sd0"></div>
+      <div class="sdot" id="sd1"></div>
+      <div class="sdot" id="sd2"></div>
+    </div>
+    <div class="slbls">
+      <div class="slbl" id="sl0">① Dictation</div>
+      <div class="slbl" id="sl1">② Vocab Quiz</div>
+      <div class="slbl" id="sl2">③ Speaking</div>
+    </div>
+  </div>
+
+  <div id="scroll">
+
+    <!-- URL Card -->
+    <div class="url-card" id="url-card">
+      <div class="card-title">Paste a YouTube video URL</div>
+      <div class="card-sub">Claude will search for the transcript automatically, then run a 3-stage English lesson: Dictation → Vocab Quiz → Speaking practice.</div>
+
+      <div class="url-row">
+        <input type="url" id="url-in" placeholder="https://youtube.com/watch?v=…" autocomplete="off">
+        <button class="go-btn" id="go-btn" onclick="fetchAndStart()">Go →</button>
+      </div>
+
+      <div class="thumb-row" id="thumb-row">
+        <img class="yt-thumb" id="yt-thumb" src="" alt="">
+        <div>
+          <div class="thumb-title" id="yt-title"></div>
+          <div class="thumb-ch" id="yt-ch"></div>
+        </div>
+      </div>
+
+      <div class="fetch-status" id="fetch-status">
+        <div class="fetch-spinner" id="fetch-spinner" style="display:none"></div>
+        <span id="fetch-msg"></span>
+      </div>
+
+      <div class="transcript-preview" id="transcript-preview">
+        <div class="transcript-lbl">Transcript preview</div>
+        <div id="transcript-text"></div>
+      </div>
+
+      <button class="btn-start" id="start-btn" onclick="startLesson()">
+        Start 3-Stage Lesson →
+      </button>
+    </div>
+
+    <div id="chat"></div>
+  </div>
+
+  <div id="vocab-bar"><div class="vocab-strip" id="vocab-strip"></div></div>
+
+  <div id="voice-bar">
+    <div id="transcript-line"></div>
+    <div class="vrow">
+      <button id="mic-btn" onclick="toggleMic()">
+        <svg viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z" fill="white" opacity="0.9"/>
+          <path d="M19 10v2a7 7 0 0 1-14 0v-2"/>
+          <line x1="12" y1="19" x2="12" y2="23"/>
+          <line x1="8" y1="23" x2="16" y2="23"/>
+        </svg>
+      </button>
+      <div class="vright">
+        <div id="status-txt">Tap mic to respond</div>
+        <div class="qbtns">
+          <button class="qbtn" onclick="send('Repeat that please')">↩ Repeat</button>
+          <button class="qbtn" onclick="send('Next')">→ Next</button>
+          <button class="qbtn" onclick="send('Give me a hint')">💡 Hint</button>
+          <button class="qbtn" onclick="send('Summarize my session')">≡ Summary</button>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+let apiKey = '', videoId = '', transcript = '', videoTitle = '';
+let history = [], vocabItems = [], correctAnswer = null;
+let stage = 0;
+let recognition = null, synth = window.speechSynthesis;
+let isListening = false, isSpeaking = false, isThinking = false;
+
+// ── System prompt ─────────────────────────────────────
+const SYSTEM = `You are an expert English tutor specializing in urban planning. You run structured 3-stage English lessons based on YouTube video transcripts.
+
+STUDENT: Korean urban planning researcher. Intermediate-advanced English.
+
+GLOBAL RULES:
+- English ONLY. Every word.
+- Short, clear, audio-friendly sentences. No markdown symbols.
+- Warm and precise feedback.
+- When you use or correct an important term, add [VOCAB: term | meaning] on its own line (auto-captured).
+
+━━━ STAGE 1: DICTATION ━━━
+Pick 4 important sentences from the transcript (prefer urban planning content, 8–20 words each).
+For each sentence say: "Dictation. Repeat this sentence:" then state the sentence.
+Wait for student's attempt. Compare it to the original and give brief feedback ("Perfect!" or point out differences).
+After 4 sentences say: "Dictation complete. Moving to vocabulary quiz." Then immediately start Stage 2.
+
+━━━ STAGE 2: VOCAB QUIZ ━━━
+Create 4 multiple-choice questions about key terms or ideas from the transcript.
+Format each question EXACTLY like this — no deviations:
+  Q: [question]
+  A) [option]
+  B) [option]
+  C) [option]
+  D) [option]
+  CORRECT:[single letter]
+After student answers: confirm correct/wrong and explain in one sentence. Move to next question.
+After 4 questions say: "Quiz done. Let's discuss." Then start Stage 3.
+
+━━━ STAGE 3: SPEAKING ━━━
+Ask ONE open-ended discussion question about the video topic.
+When student responds:
+  Natural version: [corrected sentence if needed]
+  Tip: [one expression or vocabulary note]
+  Then ask a deeper follow-up question.
+Continue until student says "Summarize my session."
+
+━━━ SUMMARY ━━━
+When student says "Summarize my session", start with exactly "SESSION SUMMARY:" then list items with "•".`;
+
+// ── Setup ─────────────────────────────────────────────
+window.onload = () => {
+  const k = localStorage.getItem('yt_tutor_v3');
+  if (k) document.getElementById('key-in').value = k;
+  setupSpeech();
+};
+
+function enterApp() {
+  const k = document.getElementById('key-in').value.trim();
+  if (!k.startsWith('sk-ant-')) { alert('Enter a valid Anthropic API key (sk-ant-…)'); return; }
+  apiKey = k;
+  localStorage.setItem('yt_tutor_v3', k);
+  switchScreen('main');
+}
+
+function goSetup() { switchScreen('setup'); }
+function switchScreen(id) {
+  document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+  document.getElementById(id).classList.add('active');
+}
+
+// ── Extract YouTube ID ────────────────────────────────
+function extractId(url) {
+  const m = url.match(/(?:v=|\/embed\/|\/shorts\/|youtu\.be\/)([a-zA-Z0-9_-]{11})/);
+  return m ? m[1] : null;
+}
+
+// ── Fetch transcript via Claude web search ────────────
+async function fetchAndStart() {
+  const url = document.getElementById('url-in').value.trim();
+  const id = extractId(url);
+  if (!id) { alert('Please enter a valid YouTube URL'); return; }
+  videoId = id;
+
+  // Show thumbnail
+  document.getElementById('yt-thumb').src = `https://img.youtube.com/vi/${id}/mqdefault.jpg`;
+  document.getElementById('yt-title').textContent = 'Searching transcript…';
+  document.getElementById('yt-ch').textContent = '';
+  document.getElementById('thumb-row').classList.add('show');
+  document.getElementById('go-btn').disabled = true;
+
+  setFetchStatus('loading', 'Searching for transcript via web…');
+  setLoadingStep('Looking up video on the web…');
+
+  try {
+    const result = await searchTranscript(url, id);
+    transcript = result.transcript || '';
+    videoTitle = result.title || url;
+
+    document.getElementById('yt-title').textContent = videoTitle;
+    document.getElementById('yt-ch').textContent = result.channel || '';
+
+    if (transcript && transcript.length > 100) {
+      setFetchStatus('ok', `Transcript found (${transcript.split(' ').length} words)`);
+      document.getElementById('transcript-text').textContent = transcript.substring(0, 300) + '…';
+      document.getElementById('transcript-preview').classList.add('show');
+      document.getElementById('start-btn').classList.add('show');
+      document.getElementById('hdr-sub').textContent = videoTitle;
+    } else {
+      setFetchStatus('fail', 'Transcript not found. Try a more popular video.');
+    }
+  } catch(e) {
+    setFetchStatus('fail', 'Search failed. Check your API key.');
+  }
+  document.getElementById('go-btn').disabled = false;
+}
+
+async function searchTranscript(url, id) {
+  // Two-pass: first get title/channel, then get transcript
+  const prompt = `Search the web for information about this YouTube video: ${url}
+
+I need you to find:
+1. The exact video title
+2. The channel name
+3. As much of the spoken transcript or detailed spoken content as possible. Search for "[video title] transcript", "[video title] full text", "[video title] subtitles", and look at video description pages, subtitle sites like rev.com, otter.ai results, or any page that quotes the spoken content.
+
+Return ONLY this JSON (no other text, no markdown):
+{
+  "title": "exact video title",
+  "channel": "channel name",
+  "transcript": "all spoken content you could find, verbatim where possible, at least 200 words"
+}`;
+
+  const res = await fetch('https://api.anthropic.com/v1/messages', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'x-api-key': apiKey,
+      'anthropic-version': '2023-06-01',
+      'anthropic-dangerous-direct-browser-access': 'true'
+    },
+    body: JSON.stringify({
+      model: 'claude-sonnet-4-20250514',
+      max_tokens: 2500,
+      tools: [{ type: 'web_search_20250305', name: 'web_search' }],
+      messages: [{ role: 'user', content: prompt }]
+    })
+  });
+
+  if (!res.ok) throw new Error('API ' + res.status);
+  const data = await res.json();
+
+  // Find the final text block
+  const textBlock = data.content?.filter(b => b.type === 'text').pop();
+  const raw = textBlock?.text || '';
+  const jsonMatch = raw.match(/\{[\s\S]*\}/);
+  if (!jsonMatch) throw new Error('No JSON in response');
+  return JSON.parse(jsonMatch[0]);
+}
+
+function setFetchStatus(type, msg) {
+  const el = document.getElementById('fetch-status');
+  const spinner = document.getElementById('fetch-spinner');
+  el.className = 'fetch-status show ' + type;
+  document.getElementById('fetch-msg').textContent = msg;
+  spinner.style.display = type === 'loading' ? 'block' : 'none';
+}
+
+// ── Start Lesson ──────────────────────────────────────
+async function startLesson() {
+  document.getElementById('url-card').style.display = 'none';
+  document.getElementById('stage-bar').classList.add('show');
+  document.getElementById('voice-bar').classList.add('show');
+
+  setStage(1);
+  showLoading('Preparing Dictation stage…', 'Analysing transcript for key sentences');
+
+  const initMsg = `VIDEO TITLE: ${videoTitle}\n\nTRANSCRIPT:\n${transcript}\n\nBegin Stage 1 (Dictation) now. Pick 4 strong sentences from the transcript above and start with the first one.`;
+
+  isThinking = true;
+  try {
+    const reply = await callClaude(initMsg, true);
+    hideLoading();
+    history.push({ role: 'user', content: initMsg });
+    history.push({ role: 'assistant', content: reply });
+    renderAI(reply, 'd');
+    speak(reply);
+  } catch(e) {
+    hideLoading();
+    renderSimple('Could not start. Check API key and connection.');
+  }
+  isThinking = false;
+}
+
+// ── Stage tracking ────────────────────────────────────
+function setStage(n) {
+  stage = n;
+  [0,1,2].forEach(i => {
+    document.getElementById('sd'+i).className = 'sdot' + (i<n-1?' done':i===n-1?' active':'');
+    document.getElementById('sl'+i).className = 'slbl' + (i<n-1?' done':i===n-1?' active':'');
+  });
+}
+
+function detectStage(text) {
+  if (/Moving to vocabulary quiz|begin Stage 2|Quiz time/i.test(text)) setStage(2);
+  if (/Quiz done|let.s discuss|begin Stage 3/i.test(text)) setStage(3);
+}
+
+function chipClass() { return stage===1?'d':stage===2?'q':'s'; }
+function chipLabel() { return stage===1?'① Dictation':stage===2?'② Vocab Quiz':'③ Speaking'; }
+
+// ── Claude API ────────────────────────────────────────
+async function callClaude(msg, init=false) {
+  const msgs = init ? [{role:'user',content:msg}] : [...history,{role:'user',content:msg}];
+  const res = await fetch('https://api.anthropic.com/v1/messages', {
+    method: 'POST',
+    headers: {
+      'Content-Type':'application/json',
+      'x-api-key': apiKey,
+      'anthropic-version':'2023-06-01',
+      'anthropic-dangerous-direct-browser-access':'true'
+    },
+    body: JSON.stringify({ model:'claude-sonnet-4-20250514', max_tokens:700, system:SYSTEM, messages:msgs })
+  });
+  if (!res.ok) throw new Error('API '+res.status);
+  const d = await res.json();
+  return d.content?.[0]?.text || '';
+}
+
+// ── Message flow ──────────────────────────────────────
+async function processInput(txt) {
+  if (isThinking) return;
+  addUser(txt);
+  history.push({role:'user',content:txt});
+  setStatus('Thinking…','thinking');
+  isThinking = true;
+  const typing = addTyping();
+  try {
+    const reply = await callClaude(txt);
+    history.push({role:'assistant',content:reply});
+    if (history.length > 32) history = history.slice(-32);
+    typing.remove();
+    detectStage(reply);
+    renderAI(reply, chipClass());
+    extractVocab(reply);
+    speak(reply);
+  } catch(e) {
+    typing.remove();
+    renderSimple('Connection error — please try again.');
+    setStatus('Tap mic to respond','');
+  }
+  isThinking = false;
+}
+
+function send(txt) {
+  if (isThinking) return;
+  if (isSpeaking) { synth.cancel(); isSpeaking=false; }
+  processInput(txt);
+}
+
+// ── Render ────────────────────────────────────────────
+const $chat = () => document.getElementById('chat');
+
+function addUser(txt) {
+  const g = el('div','mg user');
+  g.innerHTML = `<div class="mwho">You</div><div class="bubble">${esc(txt)}</div>`;
+  $chat().appendChild(g); scrollDown();
+}
+
+function renderSimple(txt) {
+  const g = el('div','mg ai');
+  g.innerHTML = `<div class="mwho">Tutor</div><div class="bubble">${esc(txt)}</div>`;
+  $chat().appendChild(g); scrollDown();
+}
+
+function renderAI(raw, chip) {
+  // SESSION SUMMARY
+  if (/SESSION SUMMARY:/i.test(raw)) {
+    const lines = raw.replace(/SESSION SUMMARY:/i,'').trim().split('\n').filter(l=>l.trim());
+    const g = el('div','mg ai');
+    const card = el('div','summary-card');
+    card.innerHTML = `<div class="summary-title">Session Summary</div>`
+      + lines.map(l=>`<div class="summary-row">${esc(l.replace(/^[•\-]\s*/,''))}</div>`).join('');
+    g.appendChild(card); $chat().appendChild(g); scrollDown(); return;
+  }
+
+  let display = raw.replace(/\[VOCAB:[^\]]+\]/g,'').trim();
+
+  // Quiz detection
+  const qM = display.match(/^Q:\s*(.+?)(?=\nA\))/ms);
+  const cMs = [...display.matchAll(/([A-D])\)\s*(.+?)(?=\n[A-D]\)|\nCORRECT:|$)/gs)];
+  const corrM = display.match(/CORRECT:\s*([A-D])/i);
+
+  const g = el('div','mg ai');
+  const chip_el = el('div',`stage-chip chip-${chip}`);
+  chip_el.textContent = chipLabel(); g.appendChild(chip_el);
+
+  if (qM && cMs.length && corrM) {
+    correctAnswer = corrM[1].toUpperCase();
+    const qText = display.replace(/[A-D]\).+/gs,'').replace(/CORRECT:[A-D]/gi,'').replace(/^Q:\s*/m,'').trim();
+    const b = el('div','bubble'); b.textContent = qText; g.appendChild(b);
+    const cd = el('div','choices');
+    cMs.forEach(([,letter,text]) => {
+      const btn = el('button','choice');
+      btn.textContent = letter+') '+text.trim();
+      btn.dataset.letter = letter.toUpperCase();
+      btn.onclick = () => handleChoice(btn, letter.toUpperCase(), cd);
+      cd.appendChild(btn);
+    });
+    g.appendChild(cd);
+  } else {
+    let main = display;
+    let correction=null, tip=null, dictSent=null;
+
+    const dM = display.match(/Repeat this sentence:\s*["""]?(.+?)["""]?(?:\n|$)/i);
+    if (dM) { dictSent = dM[1].trim().replace(/["""]/g,''); main = main.replace(dM[0],'').trim(); }
+    const nM = display.match(/Natural version:\s*(.+?)(?:\nTip:|$)/is);
+    if (nM) { correction = nM[1].trim(); main = main.replace(nM[0],'').trim(); }
+    const tM = display.match(/\bTip:\s*(.+?)(?:\n|$)/is);
+    if (tM) { tip = tM[1].trim(); main = main.replace(tM[0],'').trim(); }
+
+    if (main) { const b=el('div','bubble'); b.textContent=main; g.appendChild(b); }
+    if (dictSent) {
+      const dc=el('div','dc');
+      dc.innerHTML=`<div class="dc-lbl">Repeat aloud</div><div class="dc-sent">"${esc(dictSent)}"</div>`;
+      g.appendChild(dc);
+    }
+    if (correction) {
+      const t=el('div','ftag correction');
+      t.innerHTML=`<strong>Natural version</strong>${esc(correction)}`; g.appendChild(t);
+    }
+    if (tip) {
+      const t=el('div','ftag vocab-tip');
+      t.innerHTML=`<strong>Expression tip</strong>${esc(tip)}`; g.appendChild(t);
+    }
+  }
+  $chat().appendChild(g); scrollDown();
+}
+
+function handleChoice(btn, letter, container) {
+  container.querySelectorAll('.choice').forEach(b => b.onclick=null);
+  const ok = letter===correctAnswer;
+  btn.classList.add(ok?'correct':'wrong');
+  if (!ok) container.querySelector(`[data-letter="${correctAnswer}"]`)?.classList.add('correct');
+  send(`I chose ${letter}. ${ok?"That's correct!":"The correct answer is "+correctAnswer+"."}`);
+}
+
+function addTyping() {
+  const g=el('div','mg ai'); g.id='typing-g';
+  g.innerHTML=`<div class="mwho">Tutor</div><div class="typing-bub"><div class="dot"></div><div class="dot"></div><div class="dot"></div></div>`;
+  $chat().appendChild(g); scrollDown(); return g;
+}
+
+function scrollDown() {
+  const s=document.getElementById('scroll');
+  setTimeout(()=>s.scrollTop=s.scrollHeight,60);
+}
+
+// ── Vocab ─────────────────────────────────────────────
+function extractVocab(raw) {
+  [...raw.matchAll(/\[VOCAB:\s*([^|]+)\|\s*([^\]]+)\]/g)].forEach(m => {
+    const term=m[1].trim();
+    if (!vocabItems.includes(term)) {
+      vocabItems.push(term);
+      const p=el('div','vocab-pill'); p.textContent=term;
+      document.getElementById('vocab-strip').appendChild(p);
+      document.getElementById('vocab-bar').classList.add('show');
+    }
+  });
+}
+
+// ── Voice ─────────────────────────────────────────────
+function setupSpeech() {
+  const SR=window.SpeechRecognition||window.webkitSpeechRecognition;
+  if (!SR) return;
+  recognition=new SR(); recognition.lang='en-US'; recognition.continuous=false; recognition.interimResults=true;
+  recognition.onstart=()=>{isListening=true;document.getElementById('mic-btn').classList.add('listening');setStatus('Listening…','listening');};
+  recognition.onresult=e=>{
+    const t=Array.from(e.results).map(r=>r[0].transcript).join('');
+    document.getElementById('transcript-line').textContent=t;
+    if(e.results[e.results.length-1].isFinal){document.getElementById('transcript-line').textContent='';stopListening();if(t.trim())processInput(t.trim());}
+  };
+  recognition.onerror=()=>stopListening();
+  recognition.onend=()=>stopListening();
+}
+
+function toggleMic(){if(isSpeaking){synth.cancel();isSpeaking=false;}if(isThinking)return;isListening?stopListening():startListening();}
+function startListening(){if(!recognition)return;try{recognition.start();}catch(e){}}
+function stopListening(){isListening=false;document.getElementById('mic-btn').classList.remove('listening');try{recognition?.stop();}catch(e){}if(!isThinking&&!isSpeaking)setStatus('Tap mic to respond','');}
+
+function speak(raw){
+  synth.cancel();
+  const clean=raw.replace(/\[VOCAB:[^\]]+\]/g,'').replace(/Natural version:|Tip:|SESSION SUMMARY:|CORRECT:[A-D]/gi,'').replace(/[A-D]\)\s/g,'').replace(/Q:\s*/g,'').replace(/\n+/g,' ').trim();
+  const u=new SpeechSynthesisUtterance(clean);
+  u.lang='en-US';u.rate=0.91;u.pitch=1.0;
+  const v=synth.getVoices().find(v=>v.name.includes('Samantha')||v.name.includes('Karen')||(v.lang==='en-US'&&v.localService));
+  if(v)u.voice=v;
+  u.onstart=()=>{isSpeaking=true;document.getElementById('mic-btn').classList.add('speaking');setStatus('Speaking…','speaking');};
+  u.onend=()=>{isSpeaking=false;document.getElementById('mic-btn').classList.remove('speaking');setStatus('Tap mic to respond','');};
+  synth.speak(u);
+}
+
+function setStatus(txt,cls){const e=document.getElementById('status-txt');e.textContent=txt;e.className=cls||'';}
+
+// ── Loading ────────────────────────────────────────────
+function showLoading(msg,step=''){document.getElementById('lmsg').textContent=msg;document.getElementById('lstep').textContent=step;document.getElementById('loading').classList.add('show');}
+function setLoadingStep(txt){document.getElementById('lstep').textContent=txt;}
+function hideLoading(){document.getElementById('loading').classList.remove('show');}
+
+// ── Util ──────────────────────────────────────────────
+function el(tag,cls){const e=document.createElement(tag);if(cls)e.className=cls;return e;}
+function esc(s){return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
+
+document.addEventListener('touchstart',()=>synth.speak(new SpeechSynthesisUtterance('')),{once:true});
+window.speechSynthesis.onvoiceschanged=()=>{};
+</script>
+</body>
+</html>
