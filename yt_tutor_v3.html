@@ -257,6 +257,10 @@ body {
       <button class="btn-start" id="start-btn" onclick="startLesson()">
         Start 3-Stage Lesson →
       </button>
+      <button onclick="testApi()" style="width:100%;padding:10px;background:none;border:1px solid var(--rule2);border-radius:var(--r-sm);color:var(--ink3);font-size:12px;cursor:pointer;margin-top:4px">
+        🔍 Test API connection
+      </button>
+      <div id="test-result" style="font-size:12px;color:var(--ink3);text-align:center;min-height:16px;margin-top:4px"></div>
     </div>
 
     <div id="chat"></div>
@@ -336,6 +340,39 @@ Continue until student says "Summarize my session."
 When student says "Summarize my session", start with exactly "SESSION SUMMARY:" then list items with "•".`;
 
 // ── Setup ─────────────────────────────────────────────
+async function testApi() {
+  const k = apiKey || localStorage.getItem('yt_tutor_v3');
+  if (!k) { document.getElementById('test-result').textContent = 'No API key found'; return; }
+  document.getElementById('test-result').textContent = 'Testing…';
+  try {
+    const res = await fetch('https://api.anthropic.com/v1/messages', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'x-api-key': k,
+        'anthropic-version': '2023-06-01',
+        'anthropic-dangerous-direct-browser-access': 'true'
+      },
+      body: JSON.stringify({
+        model: 'claude-haiku-4-5-20251001',
+        max_tokens: 10,
+        messages: [{ role: 'user', content: 'Hi' }]
+      })
+    });
+    const d = await res.json();
+    if (d.content) {
+      document.getElementById('test-result').textContent = '✅ API working!';
+      document.getElementById('test-result').style.color = 'var(--green)';
+    } else {
+      document.getElementById('test-result').textContent = '❌ ' + JSON.stringify(d.error || d);
+      document.getElementById('test-result').style.color = 'var(--red)';
+    }
+  } catch(e) {
+    document.getElementById('test-result').textContent = '❌ ' + e.message;
+    document.getElementById('test-result').style.color = 'var(--red)';
+  }
+}
+
 window.onload = () => {
   const k = localStorage.getItem('yt_tutor_v3');
   if (k) document.getElementById('key-in').value = k;
@@ -401,7 +438,7 @@ async function startLesson() {
     speak(reply);
   } catch(e) {
     hideLoading();
-    renderSimple('Could not start. Check API key and connection.');
+    renderSimple('Error: ' + e.message);
   }
   isThinking = false;
 }
@@ -460,7 +497,7 @@ async function processInput(txt) {
     speak(reply);
   } catch(e) {
     typing.remove();
-    renderSimple('Connection error — please try again.');
+    renderSimple('Error: ' + e.message);
     setStatus('Tap mic to respond','');
   }
   isThinking = false;
@@ -602,16 +639,80 @@ function toggleMic(){if(isSpeaking){synth.cancel();isSpeaking=false;}if(isThinki
 function startListening(){if(!recognition)return;try{recognition.start();}catch(e){}}
 function stopListening(){isListening=false;document.getElementById('mic-btn').classList.remove('listening');try{recognition?.stop();}catch(e){}if(!isThinking&&!isSpeaking)setStatus('Tap mic to respond','');}
 
-function speak(raw){
+// ── Audio unlock (iOS requires user gesture before any TTS) ───────────────
+let audioUnlocked = false;
+let pendingSpeech = null;
+
+function unlockAudio() {
+  if (audioUnlocked) return;
+  // Play a silent utterance to unlock iOS audio context
+  const u = new SpeechSynthesisUtterance(' ');
+  u.volume = 0; u.rate = 10;
+  u.onend = () => {
+    audioUnlocked = true;
+    // If something was queued while locked, speak it now
+    if (pendingSpeech) { const p = pendingSpeech; pendingSpeech = null; speak(p); }
+  };
   synth.cancel();
-  const clean=raw.replace(/\[VOCAB:[^\]]+\]/g,'').replace(/Natural version:|Tip:|SESSION SUMMARY:|CORRECT:[A-D]/gi,'').replace(/[A-D]\)\s/g,'').replace(/Q:\s*/g,'').replace(/\n+/g,' ').trim();
-  const u=new SpeechSynthesisUtterance(clean);
-  u.lang='en-US';u.rate=0.91;u.pitch=1.0;
-  const v=synth.getVoices().find(v=>v.name.includes('Samantha')||v.name.includes('Karen')||(v.lang==='en-US'&&v.localService));
-  if(v)u.voice=v;
-  u.onstart=()=>{isSpeaking=true;document.getElementById('mic-btn').classList.add('speaking');setStatus('Speaking…','speaking');};
-  u.onend=()=>{isSpeaking=false;document.getElementById('mic-btn').classList.remove('speaking');setStatus('Tap mic to respond','');};
   synth.speak(u);
+}
+
+// Unlock on ANY touch — covers tap on Enter button, mic button, Go button etc.
+document.addEventListener('touchstart', unlockAudio, { passive: true });
+document.addEventListener('click', unlockAudio, { once: true });
+
+function speak(raw) {
+  const clean = raw
+    .replace(/\[VOCAB:[^\]]+\]/g,'')
+    .replace(/Natural version:|Tip:|SESSION SUMMARY:|CORRECT:[A-D]/gi,'')
+    .replace(/[A-D]\)\s/g,'')
+    .replace(/Q:\s*/g,'')
+    .replace(/\n+/g,' ').trim();
+
+  if (!clean) return;
+
+  // If audio not yet unlocked, queue and wait
+  if (!audioUnlocked) { pendingSpeech = raw; return; }
+
+  synth.cancel();
+
+  // iOS Safari TTS sometimes stalls — retry workaround
+  const doSpeak = () => {
+    const u = new SpeechSynthesisUtterance(clean);
+    u.lang = 'en-US'; u.rate = 0.91; u.pitch = 1.0; u.volume = 1.0;
+
+    // Pick best available English voice
+    const voices = synth.getVoices();
+    const preferred = voices.find(v =>
+      v.name.includes('Samantha') || v.name.includes('Karen') ||
+      v.name.includes('Daniel') || v.name.includes('Aaron') ||
+      (v.lang === 'en-US' && v.localService)
+    );
+    if (preferred) u.voice = preferred;
+
+    u.onstart = () => {
+      isSpeaking = true;
+      document.getElementById('mic-btn').classList.add('speaking');
+      setStatus('Speaking…', 'speaking');
+    };
+    u.onend = () => {
+      isSpeaking = false;
+      document.getElementById('mic-btn').classList.remove('speaking');
+      setStatus('Tap mic to respond', '');
+    };
+    u.onerror = () => {
+      isSpeaking = false;
+      document.getElementById('mic-btn').classList.remove('speaking');
+      setStatus('Tap mic to respond', '');
+    };
+    synth.speak(u);
+
+    // iOS Safari stall fix: resume if paused after 500ms
+    setTimeout(() => { if (synth.paused) synth.resume(); }, 500);
+  };
+
+  // Small delay ensures synth.cancel() has fully cleared
+  setTimeout(doSpeak, 100);
 }
 
 function setStatus(txt,cls){const e=document.getElementById('status-txt');e.textContent=txt;e.className=cls||'';}
@@ -625,8 +726,7 @@ function hideLoading(){document.getElementById('loading').classList.remove('show
 function el(tag,cls){const e=document.createElement(tag);if(cls)e.className=cls;return e;}
 function esc(s){return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
 
-document.addEventListener('touchstart',()=>synth.speak(new SpeechSynthesisUtterance('')),{once:true});
-window.speechSynthesis.onvoiceschanged=()=>{};
+window.speechSynthesis.onvoiceschanged = () => {};
 </script>
 </body>
 </html>
